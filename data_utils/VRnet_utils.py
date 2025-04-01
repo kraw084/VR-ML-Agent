@@ -102,7 +102,7 @@ def format_df(df, seperate_multival = True, cols_to_remove = None):
         #helper functions
         trigger_col_names = lambda name: [name + "_" + c for c in ["left", "right"]]
         pos_col_names = lambda name: [name + "_" + c for c in ["x", "y", "z"]]
-        ang_col_names = lambda name: [name + "_" + c for c in ["a", "b", "c", "d"]]
+        ang_col_names = lambda name: [name + "_" + c for c in ["x", "y", "z", "w"]]
         split_float_tuple = lambda x: x.str.strip("()").str.split(",", expand = True).astype(float)
         
         df = split_multival(df, "Thumbstick", ["thumbstick_left_x", "thumbstick_left_y", "thumbstick_right_x", "thumbstick_right_y"], split_float_tuple)
