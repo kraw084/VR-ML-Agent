@@ -15,3 +15,5 @@ cols_to_remove += [c for c in csv.columns if "acc" in c]
 csv = csv.drop(columns = cols_to_remove)
 
 print(csv.columns)
+
+#Need to add identifier column
