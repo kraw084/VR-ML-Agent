@@ -16,11 +16,6 @@ DEFAULT_COLS_TO_PREDICT = ['head_vel_x', 'head_vel_y', 'head_vel_z', 'head_angve
                            'Thumbstick_0_x', 'Thumbstick_0_y', 'Thumbstick_1_x', 'Thumbstick_1_y']
 
 
-def load_session_csv(indentifier):
-    csv = pd.read_csv(f"{dataset_path}/{indentifier}/{indentifier.split("_")[0]}_data.csv")
-    return csv
-
-
 class VRNET2_Dataset_Template(torch.utils.data.Dataset):
     def __init__(self, seq_length=1, cols_to_predict=None, transform=None, target_transform=None):
         """A default template for VRNET2.0 datasets, subclass must extend init to create the df in the desired format"""
@@ -35,7 +30,7 @@ class VRNET2_Dataset_Template(torch.utils.data.Dataset):
         return len(self.df)
     
     def get_im_path(self, session_name, frame):
-        return f"{dataset_path}/{session_name}/frames/s{frame}.jpg"
+        return f"{dataset_path}/{session_name}/video/{frame}.jpg"
     
     def __getitem__(self, index):
         #read row from csv
@@ -65,4 +60,13 @@ class VRNET2_Dataset_Template(torch.utils.data.Dataset):
         
         return x, y
 
+
+class VRNET2_Single_Session_Dataset(VRNET2_Dataset_Template):
+    def __init__(self, session, seq_length=1, cols_to_predict=None, transform=None, target_transform=None):
+        super().__init__(seq_length, cols_to_predict, transform, target_transform)
+        
+        self.session = session
+        self.df = pd.read_csv(f"{dataset_path}/{session}/{session}_data.csv")
+        
+        self.df = self.df[["session", "frame"] + self.cols_to_predict]
         
