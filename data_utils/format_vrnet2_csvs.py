@@ -6,7 +6,7 @@ from tqdm import tqdm
 
 dotenv.load_dotenv()
 dataset_path = os.getenv("DATASET_PATH")
-
+new_dataset_path = os.path.abspath(os.path.join(dataset_path, "..", "VRNET2.0_Unpacked"))
 
 for session in os.listdir(dataset_path):
     #read csv
@@ -38,6 +38,6 @@ for session in os.listdir(dataset_path):
     print("Finished formatting")
     
     #save as a new csv
-    csv.to_csv(f"{dataset_path}/{session}/{session}_data.csv")
+    csv.to_csv(f"{new_dataset_path}/{session}/{session}_data.csv")
     
     print()
