@@ -15,6 +15,9 @@ DEFAULT_COLS_TO_PREDICT = ['head_vel_x', 'head_vel_y', 'head_vel_z', 'head_angve
                            'right_controller_angvel_x', 'right_controller_angvel_y', 'right_controller_angvel_z',
                            'Thumbstick_0_x', 'Thumbstick_0_y', 'Thumbstick_1_x', 'Thumbstick_1_y']
 
+ORIGNAL_COLS_TO_PREDICT = ['head_vel_x', 'head_vel_y', 'head_vel_z', 'head_angvel_x', 'head_angvel_y', 'head_angvel_z',
+                           'Thumbstick_0_x', 'Thumbstick_0_y', 'Thumbstick_1_x', 'Thumbstick_1_y']
+
 
 class VRNET2_Dataset_Template(torch.utils.data.Dataset):
     def __init__(self, seq_length=1, cols_to_predict=None, transform=None, target_transform=None):
