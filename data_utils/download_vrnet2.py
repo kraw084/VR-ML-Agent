@@ -11,7 +11,7 @@ super_folder = "../../mnt/vr2/VRNET2.0/"
 try:
     #for each section of the dataset
     for i in range(1, 14):
-        if i == 12: continue #there is no section 12
+        if i == 12 or i == 4: continue #there is no section 12
         
         print(f"Downloading data from folder {i}")
         
@@ -27,6 +27,8 @@ try:
         for session in folder_list:
             identifier = session.split("/")[-2]
             print(f"Downloading {identifier}")
+            
+            if identifier == "149_5" or identifier == "31_5": continue #skip this folder, its data files are split up
             
             #create folder to copy data into
             if not os.path.exists(f"E:/VRNET2.0/{identifier}"): os.mkdir(f"E:/VRNET2.0/{identifier}")
