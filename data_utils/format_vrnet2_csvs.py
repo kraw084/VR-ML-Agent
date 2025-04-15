@@ -2,17 +2,25 @@ import os
 
 import dotenv
 import pandas as pd
-from tqdm import tqdm
+
 
 dotenv.load_dotenv()
-dataset_path = os.getenv("DATASET_PATH")
-new_dataset_path = os.path.abspath(os.path.join(dataset_path, "..", "VRNET2.0_Unpacked"))
 
-for session in os.listdir(dataset_path):
+downloaded_dataset_path = os.getenv("DOWNLOADED_DATASET_PATH")
+new_dataset_path = os.getenv("DATASET_PATH")
+if not os.path.exists(new_dataset_path): os.mkdir(new_dataset_path)
+
+for session in os.listdir(downloaded_dataset_path):
+    #if the images have not be unzipped yet then skip this session
+    if not os.path.exists(f"{new_dataset_path}/{session}"): 
+        print(f"Skipping {session} - no images found")
+        continue
+    
+    
     #read csv
     print(f"Formatting {session} data")
     first_num = session.split("_")[0]
-    csv = pd.read_csv(f"{dataset_path}/{session}/{first_num}_data.csv")
+    csv = pd.read_csv(f"{downloaded_dataset_path}/{session}/{first_num}_data.csv")
     csv_length = len(csv)
     
     #remove uneeded columns
@@ -27,7 +35,7 @@ for session in os.listdir(dataset_path):
     csv.insert(0, "session", [session] * len(csv))
     
     #find all frame numbers for this session
-    im_names = os.listdir(f"{dataset_path}/{session}/video")
+    im_names = os.listdir(f"{new_dataset_path}/{session}/video")
     im_names = [int(n[:-4]) for n in im_names]
     
     #remove rows with no images
@@ -38,6 +46,6 @@ for session in os.listdir(dataset_path):
     print("Finished formatting")
     
     #save as a new csv
-    csv.to_csv(f"{new_dataset_path}/{session}/{session}_data.csv")
+    csv.to_csv(f"{new_dataset_path}/{session}/{session}_data.csv", index=False)
     
     print()

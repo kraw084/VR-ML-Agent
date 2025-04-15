@@ -5,6 +5,7 @@ import os
 #set server name that stores the VRNET2.0 data
 dotenv.load_dotenv()
 server_name = os.getenv("SERVER_NAME")
+dst_dir = os.getenv("DOWNLOADED_DATASET_PATH")
 
 super_folder = "../../mnt/vr2/VRNET2.0/"
 
@@ -31,24 +32,24 @@ try:
             if identifier == "149_5" or identifier == "31_5": continue #skip this folder, its data files are split up
             
             #create folder to copy data into
-            if not os.path.exists(f"E:/VRNET2.0/{identifier}"): os.mkdir(f"E:/VRNET2.0/{identifier}")
+            if not os.path.exists(f"{dst_dir}/{identifier}"): os.mkdir(f"{dst_dir}/{identifier}")
             
             first_num = identifier.split("_")[0]
             
             #copy the data csv
-            if not os.path.exists(f"E:/VRNET2.0/{identifier}/{first_num}_data.csv"):
+            if not os.path.exists(f"{dst_dir}/{identifier}/{first_num}_data.csv"):
                 download_data_cmd = ["scp", 
                                     f"{server_name}:/mnt/vr2/VRNET2.0/{i}/{identifier}/{first_num}_data.csv", 
-                                    f"E:/VRNET2.0/{identifier}/"]
+                                    f"{dst_dir}/{identifier}/"]
                 subprocess.run(download_data_cmd, check=True)
             else:
                 print(f"Data already downloaded for {identifier}")
 
             #copy the video zip
-            if not os.path.exists(f"E:/VRNET2.0/{identifier}/{first_num}_video.zip"):
+            if not os.path.exists(f"{dst_dir}/{identifier}/{first_num}_video.zip"):
                 download_vid_cmd = ["scp", 
                                     f"{server_name}:/mnt/vr2/VRNET2.0/{i}/{identifier}/{first_num}_video.zip", 
-                                    f"E:/VRNET2.0/{identifier}/"]
+                                    f"{dst_dir}/{identifier}/"]
                 subprocess.run(download_vid_cmd, check=True)
             else:
                 print(f"Video already downloaded for {identifier}")
