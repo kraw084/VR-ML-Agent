@@ -59,7 +59,7 @@ class VRNET2_Dataset_Template(torch.utils.data.Dataset):
         if self.seq_length == 1:
             #read the single frame and turn it into a tensor
             im_path = self.get_im_path(data_row["session"], data_row["frame"])
-            x = torchvision.io.read_image(im_path)
+            x = (torchvision.io.read_image(im_path) / 255).float()
         else:
             session = data_row["session"]
             final_frame = int(data_row["frame"])
@@ -67,12 +67,12 @@ class VRNET2_Dataset_Template(torch.utils.data.Dataset):
             
             #read each frame in the sequence and convert to a tensor
             for i in range(0, self.seq_length):
-                x.append(torchvision.io.read_image(im_path(session, final_frame - i)))
+                x.append((torchvision.io.read_image(im_path(session, final_frame - i))/255).float())
             x = torch.concat(x)
             
         #extract prediction target
         y = data_row[self.cols_to_predict]
-        y = torch.from_numpy(y.to_numpy(dtype=float))
+        y = torch.from_numpy(y.to_numpy(dtype=float)).float()
         
         #apply transformations
         if self.transform: x = self.transform(x)
@@ -96,6 +96,6 @@ class VRNET2_Multi_Session_Dataset(VRNET2_Dataset_Template):
         if type(sessions) is str: sessions = read_sessions_txt(sessions)
         
         self.sessions = sessions
-        self.df = pd.concat([self.prep_session_csv(s) for s in self.session])
+        self.df = pd.concat([self.prep_session_csv(s) for s in self.sessions])
         
     

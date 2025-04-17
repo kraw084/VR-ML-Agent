@@ -5,7 +5,7 @@ import torch
 from torch.utils.tensorboard import SummaryWriter
 import dotenv
 
-from model_utils import load_model, save_model, evaluate_model
+from ml.model_utils import load_model, save_model, evaluate_model
 
 
 dotenv.load_dotenv()
@@ -33,13 +33,17 @@ class Trainer:
             load_model(self.model, f"{model_save_dir}/{name}/weights/Epoch_{self.resume}.pt")
         else:
             #otherwise setup files if they dont already exist 
-            if not os.path.exists(f"{self.save_path}"): os.mkdir(f"{self.save_path}")
-            if not os.path.exists(f"{self.save_path}/{self.name}"): os.mkdir(f"{self.save_path}/{self.name}")
-            if not os.path.exists(f"{self.save_path}/{self.name}/weights"): os.mkdir(f"{self.save_path}/{self.name}/weights")
-            if not os.path.exists(f"{self.save_path}/{self.name}/logs"): os.mkdir(f"{self.save_path}/{self.name}/logs")
+            if not os.path.exists(f"{model_save_dir}"): os.mkdir(f"{model_save_dir}")
+            
+            if not os.path.exists(f"{model_save_dir}/{self.name}"): 
+                os.mkdir(f"{model_save_dir}/{self.name}")
+                os.mkdir(f"{model_save_dir}/{self.name}/weights")
+                os.mkdir(f"{model_save_dir}/{self.name}/logs")
+            else:
+                raise FileExistsError(f"The model folder {model_save_dir}/{self.name} already exits")
             
             #save hyperparameters
-            with open(f"{self.save_path}/{self.name}/hyps.txt", "w") as f:
+            with open(f"{model_save_dir}/{self.name}/hyps.txt", "w") as f:
                 f.write(f"Model Name: {self.name}\n")
                 f.write(f"Epochs: {self.epochs}\n")
                 f.write(f"Batch Size: {self.batch_size}\n")
@@ -47,19 +51,24 @@ class Trainer:
                 f.write(f"Weight Decay: {self.weight_decay}\n")
                 f.write(f"Save Frequency: {self.save_freq}\n")
                 f.write(f"Device: {self.device}\n")
+                f.write(f"Cols to predict: {self.train_dataset.cols_to_predict}\n")
+                f.write(f"\nNotes: \n")
 
+        self.model.to(self.device)
 
         #create data loader and optimizer
-        self.loader = torch.utils.data.DataLoader(train_dataset, batch_size, workers=self.workers)
+        self.loader = torch.utils.data.DataLoader(train_dataset, batch_size, num_workers=self.workers)
         self.opt = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
 
         #create tensorboard
-        self.writer = SummaryWriter(f"{self.save_path}/{self.name}/logs")
+        self.writer = SummaryWriter(f"{model_save_dir}/{self.name}/logs")
 
 
-    def process_batch(self, e_i, batch_X, batch_Y, progress_bar):
+    def process_batch(self, e_i, batch, progress_bar):
         """Handles calculating loss for a single batch"""
         #run the batch through the model and calculate loss
+        batch_X, batch_Y = batch
+        batch_X, batch_Y = batch_X.to(self.device), batch_Y.to(self.device)
         prediction = self.model(batch_X)
         loss = self.loss_fn(prediction, batch_Y)
 
