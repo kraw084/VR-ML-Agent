@@ -26,6 +26,10 @@ def read_sessions_txt(name):
     return sessions
 
 
+def nan_count(df):
+    return df.isna().sum().sum().item()
+
+
 class VRNET2_Dataset_Template(torch.utils.data.Dataset):
     def __init__(self, seq_length=1, cols_to_predict=None, transform=None, target_transform=None):
         """A default template for VRNET2.0 datasets, subclass must extend init to create the df in the desired format"""
@@ -44,6 +48,12 @@ class VRNET2_Dataset_Template(torch.utils.data.Dataset):
         #remove beginning rows so images with not enough previous frames cannot be selected
         if self.seq_length > 1:
             self.df = self.df.drop([i for i in range(0, self.seq_length)])
+            
+        #num_of_nan_vals = nan_count(df)
+        #if num_of_nan_vals > 0:
+        #    raise ValueError(f"WARNING: dataset contains {num_of_nan_vals} NaN values")
+         
+        df = df.dropna()
             
         return df
         
@@ -89,6 +99,8 @@ class VRNET2_Single_Session_Dataset(VRNET2_Dataset_Template):
         self.df = self.prep_session_csv(session)
         
         
+        
+        
 class VRNET2_Multi_Session_Dataset(VRNET2_Dataset_Template):
     def __init__(self, sessions, seq_length=1, cols_to_predict=None, transform=None, target_transform=None):
         super().__init__(seq_length, cols_to_predict, transform, target_transform)
@@ -97,5 +109,4 @@ class VRNET2_Multi_Session_Dataset(VRNET2_Dataset_Template):
         
         self.sessions = sessions
         self.df = pd.concat([self.prep_session_csv(s) for s in self.sessions])
-        
     
