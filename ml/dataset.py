@@ -4,6 +4,7 @@ import dotenv
 import torch
 import torchvision
 import pandas as pd
+import numpy as np
 
 dotenv.load_dotenv()
 dataset_path = os.getenv("DATASET_PATH")
@@ -40,19 +41,16 @@ class VRNET2_Dataset_Template(torch.utils.data.Dataset):
         
         self.df = None
         
-    def prep_session_csv(self, session_name):
+        
+    def prep_session_csv(self, session_name):     
         #read the csv and remove uneeded rows
         df = pd.read_csv(f"{dataset_path}/{session_name}/{session_name}_data.csv")
         df = df[["session", "frame"] + self.cols_to_predict]
         
         #remove beginning rows so images with not enough previous frames cannot be selected
         if self.seq_length > 1:
-            self.df = self.df.drop([i for i in range(0, self.seq_length)])
-            
-        #num_of_nan_vals = nan_count(df)
-        #if num_of_nan_vals > 0:
-        #    raise ValueError(f"WARNING: dataset contains {num_of_nan_vals} NaN values")
-         
+            df = df.drop([i for i in range(0, self.seq_length)])
+                     
         df = df.dropna()
             
         return df
@@ -77,7 +75,7 @@ class VRNET2_Dataset_Template(torch.utils.data.Dataset):
             
             #read each frame in the sequence and convert to a tensor
             for i in range(0, self.seq_length):
-                x.append((torchvision.io.read_image(im_path(session, final_frame - i))/255).float())
+                x.append((torchvision.io.read_image(self.get_im_path(session, final_frame - i * 5))/255).float())
             x = torch.concat(x)
             
         #extract prediction target
@@ -98,9 +96,7 @@ class VRNET2_Single_Session_Dataset(VRNET2_Dataset_Template):
         self.session = session
         self.df = self.prep_session_csv(session)
         
-        
-        
-        
+               
 class VRNET2_Multi_Session_Dataset(VRNET2_Dataset_Template):
     def __init__(self, sessions, seq_length=1, cols_to_predict=None, transform=None, target_transform=None):
         super().__init__(seq_length, cols_to_predict, transform, target_transform)
@@ -110,3 +106,54 @@ class VRNET2_Multi_Session_Dataset(VRNET2_Dataset_Template):
         self.sessions = sessions
         self.df = pd.concat([self.prep_session_csv(s) for s in self.sessions])
     
+
+class VRNET2_Single_Session_Seq_Controls_Dataset(VRNET2_Dataset_Template):
+    """This version of the single session dataset returns the controls of each frame return, not just the last frames"""
+    def __init__(self, session, seq_length=1, cols_to_predict=None, transform=None, target_transform=None):
+        super().__init__(seq_length, cols_to_predict, transform, target_transform)
+        
+        if seq_length == 1: raise ValueError("seq length must be greater than 1 for VRNET2_Multi_Session_Seq_Controls_Dataset")
+        
+        self.session = session
+        self.df = self.prep_session_csv(session)
+        
+    
+    def prep_session_csv(self, session_name):     
+        #read the csv and remove uneeded rows
+        df = pd.read_csv(f"{dataset_path}/{session_name}/{session_name}_data.csv")
+        df = df[["session", "frame"] + self.cols_to_predict]
+                     
+        df = df.dropna()
+            
+        return df
+    
+    
+    def __len__(self):
+        return len(self.df) - self.seq_length
+    
+    
+    def __getitem__(self, index):
+        index += self.seq_length
+        
+        data_row = self.df.iloc[index]
+        
+        session = data_row["session"]
+        final_frame = int(data_row["frame"])
+        x = []
+        y = []
+        
+        #read each frame in the sequence and convert to a tensor
+        for i in range(0, self.seq_length):
+            x.append((torchvision.io.read_image(self.get_im_path(session, final_frame - i * 5))/255).float())
+            y.append(self.df.iloc[index - i][self.cols_to_predict])
+            
+        x = torch.concat(x)
+        
+        #extract prediction target
+        y = torch.from_numpy(np.array(y, dtype=float)).float()
+        
+        #apply transformations
+        if self.transform: x = self.transform(x)
+        if self.target_transform: y = self.target_transform(y)
+        
+        return x, y
