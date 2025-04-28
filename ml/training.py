@@ -13,7 +13,7 @@ model_save_dir = os.getenv("MODEL_SAVE_DIR")
 
 class Trainer:
     def __init__(self, model, train_dataset, val_dataset, epochs, batch_size, lr, loss_fn,
-                 weight_decay, save_freq, device, name, workers=1, resume=None):
+                 weight_decay, save_freq, device, name, workers=1, resume=None, scheduler=None):
         self.model = model
         self.train_dataset = train_dataset
         self.val_dataset = val_dataset
@@ -27,7 +27,8 @@ class Trainer:
         self.name = name
         self.resume = resume
         self.workers = workers
-
+        
+        
         if resume:
             #load model is resume is specified
             load_model(self.model, f"{model_save_dir}/{name}/weights/Epoch_{self.resume}.pt")
@@ -45,6 +46,7 @@ class Trainer:
             #save hyperparameters
             with open(f"{model_save_dir}/{self.name}/hyps.txt", "w") as f:
                 f.write(f"Model Name: {self.name}\n")
+                f.write(f"Model Type: {str(self.model)}")
                 f.write(f"Epochs: {self.epochs}\n")
                 f.write(f"Batch Size: {self.batch_size}\n")
                 f.write(f"Learning Rate: {self.lr}\n")
@@ -52,14 +54,23 @@ class Trainer:
                 f.write(f"Save Frequency: {self.save_freq}\n")
                 f.write(f"Device: {self.device}\n")
                 f.write(f"Cols to predict: {self.train_dataset.cols_to_predict}\n")
+                
+                if not scheduler is None:
+                    f.write(f"Scheduler: {str(scheduler)[1:].split(" ")[0]}")
+                
                 f.write(f"\nNotes: \n")
-
+                
+            
         self.model.to(self.device)
 
         #create data loader and optimizer
         self.loader = torch.utils.data.DataLoader(train_dataset, batch_size, num_workers=self.workers)
         self.opt = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
 
+        if not scheduler is None:
+            scheduler_class, schedular_kwargs = scheduler
+            self.schedular = scheduler_class(self.opt, **schedular_kwargs)
+            
         #create tensorboard
         self.writer = SummaryWriter(f"{model_save_dir}/{self.name}/logs")
 
@@ -116,6 +127,9 @@ class Trainer:
             print(f"Epoch {e_i} validation loss: {eval_loss}")
 
         print()
+        
+        if not self.schedular is None:
+            self.schedular.step()
 
 
     def train(self):

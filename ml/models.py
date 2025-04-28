@@ -21,5 +21,8 @@ class EfficientnetAgent(torch.nn.Module):
         self.output_size = output_size
         
     def forward(self, input):
-        return self.model.forward(input)        
+        return self.model.forward(input)   
+    
+    def str(self):
+        return f"EfficentNet B{self.size} - Im Size: {self.im_size} - Output Size: {self.output_size}"     
 
