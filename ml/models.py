@@ -24,6 +24,7 @@ class EfficientnetAgent(torch.nn.Module):
     def __str__(self):
         return f"EfficentNet B{self.size} - Im Size: {self.im_size} - Output Size: {self.output_size}"     
     
+      
     
 class ControlVecFeatureExtractor(torch.nn.Module):
     def __init__(self, input_size, output_size):
@@ -37,7 +38,7 @@ class ControlVecFeatureExtractor(torch.nn.Module):
             torch.nn.Linear(256, output_size)
         )
         
-    def foward(self, input):
+    def forward(self, input):
         return self.layers(input)
 
 
@@ -55,7 +56,7 @@ class EMBHead(torch.nn.Module):
             torch.nn.Linear(128, 1)
         )
         
-    def foward(self, input):
+    def forward(self, input):
         x = torch.concat(input, dim=1)
         return self.layers(x)
         
@@ -87,14 +88,35 @@ class EfficientnetEBMAgent(torch.nn.Module):
         x = self.im_feature_projection(x)
         
         return x
+    
+    def extract_control_feature(self, input):
+        return self.control_feature_extractor(input)
+    
+    def run_head(self, im_feature, control_feature):
+        return self.head((im_feature, control_feature))
+       
         
     def forward(self, input):
         image, control_vector = input
         im_feature = self.extract_image_feature(image) 
-        control_feature = self.control_feature_extractor(control_vector)
-        energy = self.head((im_feature, control_feature))
-        
-        return energy
+        control_feature = self.extract_control_feature(control_vector)
+        return self.run_head(im_feature, control_feature)
     
     def __str__(self):
         return f"EfficentNet B{self.size} - Im Size: {self.im_size} - Output Size: {self.output_size}"
+    
+    
+class NCELoss(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.ce_loss = torch.nn.CrossEntropyLoss()
+        
+    def forward(self, energy, fake_energy):
+        #energy [b, 1]
+        #fake: [b, n, 1]
+        
+        all_energies = torch.cat([energy, fake_energy.squeeze(-1)], dim=1)
+        labels = torch.zeros(all_energies.shape[0], dtype=torch.long, device=all_energies.device)
+        
+        return self.ce_loss(-all_energies, labels)
+    

@@ -140,3 +140,38 @@ class Trainer:
 
         self.writer.close()
         print("Training finished!")
+        
+          
+class EMBTrainer(Trainer):
+   def process_batch(self, e_i, batch, progress_bar):
+        """Handles calculating loss for a single batch"""
+        #run the batch through the model and calculate loss
+        batch_ims, batch_con = batch
+        batch_ims, batch_con = batch_ims.to(self.device), batch_con.to(self.device)
+        
+        batch_im_features = self.model.extract_image_feature(batch_ims)
+        batch_con_features = self.model.extract_control_feature(batch_con)
+        
+        batch_fake_controls = None
+        batch_fake_con_features = self.model.extract_control_feature(batch_fake_controls)
+        
+        batch_energy = self.model.run_head(batch_im_features, batch_con_features)
+        batch_fake_energy = torch.tensor([self.model.run_head(batch_im_features[b], batch_fake_con_features[b]) 
+                                          for b in range(batch_fake_con_features.shape[0])])
+        
+        loss = self.loss_fn(batch_energy, batch_fake_energy)
+
+        #optimization step
+        self.opt.zero_grad()
+        loss.backward()
+        self.opt.step()
+
+        batch_loss = loss.item()
+
+        #append loss to progress bar
+        progress_bar.set_postfix({"loss": batch_loss})
+
+        #add batch loss to tensorboard
+        self.writer.add_scalar('Loss/Batch_Loss', batch_loss, e_i * len(self.loader) + progress_bar.n)
+
+        return batch_loss 
