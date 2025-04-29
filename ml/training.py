@@ -46,7 +46,7 @@ class Trainer:
             #save hyperparameters
             with open(f"{model_save_dir}/{self.name}/hyps.txt", "w") as f:
                 f.write(f"Model Name: {self.name}\n")
-                f.write(f"Model Type: {str(self.model)}")
+                f.write(f"Model Type: {str(self.model)}\n")
                 f.write(f"Epochs: {self.epochs}\n")
                 f.write(f"Batch Size: {self.batch_size}\n")
                 f.write(f"Learning Rate: {self.lr}\n")
@@ -56,7 +56,7 @@ class Trainer:
                 f.write(f"Cols to predict: {self.train_dataset.cols_to_predict}\n")
                 
                 if not scheduler is None:
-                    f.write(f"Scheduler: {str(scheduler)[1:].split(" ")[0]}")
+                    f.write(f"Scheduler: {str(scheduler).split(' ')[1]}\n")
                 
                 f.write(f"\nNotes: \n")
                 

@@ -46,11 +46,11 @@ device = torch.device(f'cuda:{gpu_num}')
 print(f"Using device {gpu_num}: {torch.cuda.get_device_properties(gpu_num).name}")
 
 #setup training 
-trainer = Trainer(name = "ENB5_MSE_test",
+trainer = Trainer(name = "ENB4_MSE_normed_lrdecay",
                   model = model,
                   train_dataset = train_dataset,
                   val_dataset = val_dataset,
-                  epochs = 30,
+                  epochs = 20,
                   batch_size = 64,
                   lr = lr,
                   loss_fn = loss_func,
