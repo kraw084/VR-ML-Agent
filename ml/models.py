@@ -57,10 +57,10 @@ class EMBHead(torch.nn.Module):
         )
         
     def forward(self, input):
-        x = torch.concat(input, dim=1)
+        x = torch.concat(input, dim=-1)
         return self.layers(x)
-        
-
+     
+    
 class EfficientnetEBMAgent(torch.nn.Module):
     def __init__(self, im_size = (288, 288), control_input_size = 10, feature_vector_size = 512, pretrained = True, size=2):
         super().__init__()
@@ -86,7 +86,7 @@ class EfficientnetEBMAgent(torch.nn.Module):
         x = x.flatten(start_dim=1)
         x = self.im_feature_extractor._dropout(x)
         x = self.im_feature_projection(x)
-        
+
         return x
     
     def extract_control_feature(self, input):
@@ -103,7 +103,7 @@ class EfficientnetEBMAgent(torch.nn.Module):
         return self.run_head(im_feature, control_feature)
     
     def __str__(self):
-        return f"EfficentNet B{self.size} - Im Size: {self.im_size} - Output Size: {self.output_size}"
+        return f"EfficentNet B{self.size} EBM - Im Size: {self.im_size} - Control Size: {self.control_input_size} - Feature Vector Size: {self.feature_vector_size}"
     
     
 class NCELoss(torch.nn.Module):
@@ -119,4 +119,29 @@ class NCELoss(torch.nn.Module):
         labels = torch.zeros(all_energies.shape[0], dtype=torch.long, device=all_energies.device)
         
         return self.ce_loss(-all_energies, labels)
-    
+  
+"""  
+model = EfficientnetEBMAgent()
+
+B = 16
+con_in = torch.rand((B, 10))
+im_in = torch.rand((B, 3, 288, 288))
+
+en = model((im_in, con_in))
+
+negs = torch.rand(B, 10, 1)
+
+loss_func = NCELoss()
+loss = loss_func(en, negs)
+loss.backward()
+
+for name, param in model.named_parameters():
+    if param.grad is None:
+        print(f"{name}: ❌ No gradient (None)")
+    elif torch.isnan(param.grad).any():
+        print(f"{name}: ❌ Gradient has NaNs")
+    elif torch.all(param.grad == 0):
+        print(f"{name}: ⚠️ Gradient is all zero")
+    else:
+        print(f"{name}: ✅ grad norm = {param.grad.norm():.4f}")
+"""

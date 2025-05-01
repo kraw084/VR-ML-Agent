@@ -1,4 +1,5 @@
 import os
+import re
 
 from tqdm import tqdm
 import torch
@@ -35,13 +36,21 @@ class Trainer:
         else:
             #otherwise setup files if they dont already exist 
             if not os.path.exists(f"{model_save_dir}"): os.mkdir(f"{model_save_dir}")
-            
+
             if not os.path.exists(f"{model_save_dir}/{self.name}"): 
                 os.mkdir(f"{model_save_dir}/{self.name}")
-                os.mkdir(f"{model_save_dir}/{self.name}/weights")
-                os.mkdir(f"{model_save_dir}/{self.name}/logs")
             else:
-                raise FileExistsError(f"The model folder {model_save_dir}/{self.name} already exits")
+                pattern = re.compile(rf"^{re.escape(name)}(_\d+)?$")
+                numbers = []
+                for n in os.listdir(model_save_dir):
+                    re_match = pattern.fullmatch(n)
+                    if re_match: numbers.append(int(re_match.group(1)[1:]) if re_match.group(1) else 0)
+                    
+                self.name = name + f"_{max(numbers) + 1}"
+                os.mkdir(f"{model_save_dir}/{self.name}")
+                
+            os.mkdir(f"{model_save_dir}/{self.name}/weights")
+            os.mkdir(f"{model_save_dir}/{self.name}/logs")
             
             #save hyperparameters
             with open(f"{model_save_dir}/{self.name}/hyps.txt", "w") as f:
@@ -73,6 +82,9 @@ class Trainer:
             
         #create tensorboard
         self.writer = SummaryWriter(f"{model_save_dir}/{self.name}/logs")
+
+    def evaluate(self):
+        return evaluate_model(self.model, self.val_dataset, self.batch_size, self.loss_fn, self.device, self.workers)
 
 
     def process_batch(self, e_i, batch, progress_bar):
@@ -122,7 +134,7 @@ class Trainer:
             save_model(self.model, f"{model_save_dir}/{self.name}/weights/Epoch_{e_i}.pt")
             
             #validate model and add val loss to tensorboard
-            eval_loss = evaluate_model(self.model, self.val_dataset, self.batch_size, self.loss_fn, self.device, self.workers)
+            eval_loss = self.evaluate()
             self.writer.add_scalar('Loss/Val_Loss', eval_loss, e_i)
             print(f"Epoch {e_i} validation loss: {eval_loss}")
 
@@ -140,27 +152,78 @@ class Trainer:
 
         self.writer.close()
         print("Training finished!")
+       
+
+               
+class EBMTrainer(Trainer):
+    def sample_negatives(self, batch_con):
+        """
+        B, _ = batch.shape
         
-          
-class EMBTrainer(Trainer):
-   def process_batch(self, e_i, batch, progress_bar):
+        indicies = torch.arange(B).unsqueeze(0).expand(B, B)
+        mask = torch.eye(B, dtype=torch.bool)
+        indicies = indicies[~mask]
+        indicies = indicies.view((B, B - 1))
+        rand_indices = torch.randint(0, B - 1, size=(B, num_negatives))
+        
+        chosen_indicies = indicies.gather(dim=1, index=rand_indices)
+        return batch[chosen_indicies]
+        """
+        return torch.rand_like(batch_con, device=batch_con.device)
+   
+        
+    def generate_fake_energies(self, batch_con, im_features, number_of_negatives):
+        fake_engeries = torch.zeros((self.batch_size, number_of_negatives, 1), device=batch_con.device)
+        
+        for i in range(number_of_negatives):
+            batch_fake_con = self.sample_negatives(batch_con)
+            batch_fake_con_features = self.model.extract_control_feature(batch_con)
+            batch_fake_energies = self.model.head(im_features, batch_fake_con_features)
+            
+            fake_engeries[:, i, :] = batch_fake_energies
+            
+        return fake_engeries
+        
+     
+    def evaluate(self):
+        self.model.eval()
+        dataloader = torch.utils.data.dataloader.DataLoader(self.val_dataset, batch_size=self.batch_size, num_workers=self.workers)
+        total_loss = 0
+        number_of_negatives = 10
+            
+        #loop over batches and compute the loss
+        with torch.no_grad():
+            for batch_ims, batch_con in tqdm(dataloader, desc = "Evaluating model", bar_format = "{l_bar}{bar:20}{r_bar}"):
+                batch_ims, batch_con = batch_ims.to(self.device), batch_con.to(self.device)
+                
+                batch_im_features = self.model.extract_image_feature(batch_ims)
+                batch_con_features = self.model.extract_control_feature(batch_con)
+                batch_energy = self.model.run_head(batch_im_features, batch_con_features)
+
+                batch_fake_energy = self.generate_fake_energies(batch_con, batch_im_features, number_of_negatives)
+                
+                total_loss += self.loss_fn(batch_energy, batch_fake_energy)
+                                    
+        return total_loss/len(dataloader)
+       
+        
+    def process_batch(self, e_i, batch, progress_bar):
         """Handles calculating loss for a single batch"""
+        
+        number_of_negatives = 10
+        
         #run the batch through the model and calculate loss
         batch_ims, batch_con = batch
         batch_ims, batch_con = batch_ims.to(self.device), batch_con.to(self.device)
         
         batch_im_features = self.model.extract_image_feature(batch_ims)
         batch_con_features = self.model.extract_control_feature(batch_con)
-        
-        batch_fake_controls = None
-        batch_fake_con_features = self.model.extract_control_feature(batch_fake_controls)
-        
         batch_energy = self.model.run_head(batch_im_features, batch_con_features)
-        batch_fake_energy = torch.tensor([self.model.run_head(batch_im_features[b], batch_fake_con_features[b]) 
-                                          for b in range(batch_fake_con_features.shape[0])])
         
+        batch_fake_energy = self.generate_fake_energies(batch_con, batch_im_features, number_of_negatives)
+       
         loss = self.loss_fn(batch_energy, batch_fake_energy)
-
+            
         #optimization step
         self.opt.zero_grad()
         loss.backward()
